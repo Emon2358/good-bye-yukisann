@@ -1,44 +1,46 @@
-name: SQLMap SQL Injection Scan
+name: WPScan Security Test
 
 on:
+  # 'Actions' タブから手動で実行できるようにします
   workflow_dispatch:
 
 jobs:
-  sqlmap-scan:
+  wpscan-audit:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Install SQLMap
+      # 1. リポジトリをチェックアウトします
+      # (チェックアウトしないと、ワークスペースが作成されないため)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. WPScan が依存する Ruby の環境をセットアップします
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1' # WPScan と互換性のある Ruby バージョン
+
+      # 3. WPScan の実行に必要なライブラリをインストールします
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y sqlmap
+          sudo apt-get install -y libcurl4-openssl-dev libxml2-dev libxslt1-dev libffi-dev
 
-      - name: Create results directory
-        run: mkdir -p ./sqlmap-results
+      # 4. WPScan 本体を gem からインストールします
+      - name: Install WPScan
+        run: gem install wpscan
 
-      - name: Run SQLMap Scan (Safe Mode)
+      # 5. SecLists からパスワードリストをダウンロードします (NEW)
+      - name: Download Password List (Lizard-Squad.txt)
         run: |
-          # -----------------------------------------------------------------
-          # !!! 警告 !!!
-          # スキャンが 403 Forbidden で失敗する場合、
-          # サーバー側のWAF設定で「GitHub ActionsのIPアドレス」を
-          # 許可リストに追加する必要があります。
-          #
-          # !!! 必須 !!!
-          # "https://your-test-site.com/search.php?query=test" の部分を
-          # あなたの「テスト環境」の「パラメータ付きURL」に変更してください。
-          # -----------------------------------------------------------------
-          sqlmap -u "https://reitouko.site/" \
-            --privileges \
-            --output-dir=./sqlmap-results \
-            --answers="quit=N"
-            
-          # --level=1, --risk=1 : 最も安全で基本的なテストのみ実行
-          # (注: あなたのコードは level=3, risk=3 になっていましたが、
-          #      コメントと食い違っており、非常に危険な設定です)
+          # curl を使って指定されたURLのrawコンテンツをダウンロードし、Lizard-Squad.txtとして保存します
+          curl -L -o Lizard-Squad.txt https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/Leaked-Databases/Lizard-Squad.txt
+          echo "Password list downloaded."
+          ls -lh Lizard-Squad.txt # ダウンロードされたことを確認
 
-      - name: Upload SQLMap Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sqlmap-results
-          path: ./sqlmap-results/
+      # 6. WPScan を実行します
+      - name: Run WPScan
+        run: |
+          # 警告: このコマンドは http://localhost をターゲットにしているため、
+          # GitHub Actions ランナー自身を指し、接続エラーで失敗する可能性が高いです。
+          wpscan --url https://reitouko.site/ --passwords Lizard-Squad.txt --usernames yuki571 --no-update
