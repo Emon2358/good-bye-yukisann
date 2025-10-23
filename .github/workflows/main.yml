@@ -2,35 +2,44 @@ name: SQLMap SQL Injection Scan
 
 on:
   workflow_dispatch:
-    # --- 変更点 (ここから) ---
     inputs:
       target_url:
         description: 'スキャン対象のURL (例: https://your-test-site.com/search.php?id=1)'
         required: true
         type: string
-    # --- 変更点 (ここまで) ---
 
 jobs:
   sqlmap-scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Install SQLMap
+      - name: Install SQLMap (Latest from GitHub)
+        # --- 変更点 (1) ---
+        # apt-get ではなく、公式リポジトリから最新版をクローンする
         run: |
           sudo apt-get update
-          sudo apt-get install -y sqlmap
+          sudo apt-get install -y git python3
+          git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap
 
       - name: Create results directory
         run: mkdir -p ./sqlmap-results
 
       - name: Run SQLMap Scan (Safe Mode)
         run: |
-          # --- 変更点 ---
-          # 手動入力されたURL (${{ github.inputs.target_url }}) を使用します。
-          # 安全のため、必ずクォーテーションで囲んでください。
-          sqlmap -u "${{ github.inputs.target_url }}" \
+          # --- 変更点 (2) ---
+          # 実行前に入力が空でないかをチェックする
+          if [ -z "${{ github.inputs.target_url }}" ]; then
+            echo "::error::target_urlが空です。有効なURLを入力してください。"
+            exit 1
+          fi
+          
+          echo "Scanning URL: ${{ github.inputs.target_url }}"
+
+          # --- 変更点 (3) ---
+          # 最新版を実行するため、python3でスクリプトを直接呼び出す
+          python3 /opt/sqlmap/sqlmap.py -u "${{ github.inputs.target_url }}" \
             --batch \
-            --level=1 \
-            --risk=1 \
+            --level=3 \
+            --risk=3 \
             --output-dir=./sqlmap-results \
             --answers="quit=N"
             
