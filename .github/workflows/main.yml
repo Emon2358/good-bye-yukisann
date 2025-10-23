@@ -21,7 +21,7 @@ jobs:
       - name: Run SQLMap Scan (Safe Mode)
         run: |
           # !!! 必須: あなたの「テスト環境」の「パラメータ付きURL」に変更してください
-          sqlmap -u "https://reitouko.site/blog/author/yuki571/" \
+          sqlmap -u "https://reitouko.site/" \
             --batch \
             --level=3 \
             --risk=3 \
