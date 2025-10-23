@@ -1,0 +1,42 @@
+name: SQLMap SQL Injection Scan
+
+on:
+  workflow_dispatch:
+    # --- 変更点 (ここから) ---
+    inputs:
+      target_url:
+        description: 'スキャン対象のURL (例: https://your-test-site.com/search.php?id=1)'
+        required: true
+        type: string
+    # --- 変更点 (ここまで) ---
+
+jobs:
+  sqlmap-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install SQLMap
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sqlmap
+
+      - name: Create results directory
+        run: mkdir -p ./sqlmap-results
+
+      - name: Run SQLMap Scan (Safe Mode)
+        run: |
+          # --- 変更点 ---
+          # 手動入力されたURL (${{ github.inputs.target_url }}) を使用します。
+          # 安全のため、必ずクォーテーションで囲んでください。
+          sqlmap -u "${{ github.inputs.target_url }}" \
+            --batch \
+            --level=1 \
+            --risk=1 \
+            --output-dir=./sqlmap-results \
+            --answers="quit=N"
+            
+      - name: Upload SQLMap Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sqlmap-results
+          path: ./sqlmap-results/
