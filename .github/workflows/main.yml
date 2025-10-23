@@ -27,7 +27,7 @@ jobs:
           # "https://your-test-site.com/search.php?query=test" の部分を
           # あなたの「テスト環境」の「パラメータ付きURL」に変更してください。
           # -----------------------------------------------------------------
-          sqlmap -u "https://your-test-site.com/search.php?query=test" \
+          sqlmap -u "https://reitouko.site/blog/wp-login.php?redirect_to=https%3A%2F%2Freitouko.site%2Fblog%2Fwp-admin%2F&reauth=1" \
             --privileges \
             --output-dir=./sqlmap-results \
             --answers="quit=N"
