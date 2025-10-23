@@ -1,8 +1,6 @@
 name: SQLMap SQL Injection Scan
 
 on:
-  # Actionsタブから手動でのみ実行する
-  # (危険なため、スケジュール実行は強く非推奨)
   workflow_dispatch:
 
 jobs:
@@ -15,26 +13,30 @@ jobs:
           sudo apt-get install -y sqlmap
 
       - name: Create results directory
-        # レポート保存用のディレクトリを作成
         run: mkdir -p ./sqlmap-results
 
       - name: Run SQLMap Scan (Safe Mode)
         run: |
-          # !!! 必須: あなたの「テスト環境」の「パラメータ付きURL」に変更してください
-          sqlmap -u "https://reitouko.site/" \
-            --batch \
-            --level=3 \
-            --risk=3 \
+          # -----------------------------------------------------------------
+          # !!! 警告 !!!
+          # スキャンが 403 Forbidden で失敗する場合、
+          # サーバー側のWAF設定で「GitHub ActionsのIPアドレス」を
+          # 許可リストに追加する必要があります。
+          #
+          # !!! 必須 !!!
+          # "https://your-test-site.com/search.php?query=test" の部分を
+          # あなたの「テスト環境」の「パラメータ付きURL」に変更してください。
+          # -----------------------------------------------------------------
+          sqlmap -u "https://your-test-site.com/search.php?query=test" \
+            --privileges \
             --output-dir=./sqlmap-results \
             --answers="quit=N"
             
-          # --batch : CIで実行するために必須（すべての質問にデフォルトで回答）
           # --level=1, --risk=1 : 最も安全で基本的なテストのみ実行
-          # --output-dir : 結果の出力先
-          # --answers="quit=N" : 途中で「終了しますか？」と聞かれた場合に「N (いいえ)」と答える
+          # (注: あなたのコードは level=3, risk=3 になっていましたが、
+          #      コメントと食い違っており、非常に危険な設定です)
 
       - name: Upload SQLMap Results
-        # スキャンが成功しても失敗しても、ログをアップロードする
         if: always()
         uses: actions/upload-artifact@v4
         with:
